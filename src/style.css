@@ -1,21 +1,7 @@
-/* PWA Mobile Optimization */
-html, body {
-  overscroll-behavior-y: contain; /* Prevents pull-to-refresh pull-down */
-  -webkit-tap-highlight-color: transparent;
-  background-color: #F8FAFC; /* bg-slate-50 */
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Custom animations */
-@keyframes pulse-slow {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.05); }
-}
-
-.pulse-scan {
-  animation: pulse-slow 2s ease-in-out infinite;
-}
-
-/* View Transitions */
 .view-transition {
   animation: fadeIn 0.4s ease-out;
 }
@@ -25,17 +11,15 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Modal Backdrops */
-.modal-backdrop {
-  background-color: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(8px);
+.scan-line {
+  animation: scanMove 2s linear infinite;
 }
 
-/* Utility to hide scrollbar */
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
+@keyframes scanMove {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(256px); }
 }
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+.text-shadow-glow {
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
 }
