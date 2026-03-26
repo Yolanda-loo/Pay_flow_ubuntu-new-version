@@ -49,6 +49,40 @@ app.post('/api/login', async (req, res) => {
   res.json({ token, user });
 });
 
+// 4. Utility Purchase Route (Electricity/Airtime)
+app.post('/api/utility', async (req, res) => {
+  const { email, type, amount, provider } = req.body;
+  const val = parseFloat(amount);
+
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (user.balance < val) return res.status(400).json({ message: "Insufficient funds" });
+
+    user.balance -= val;
+    
+    // Generate mock data based on type
+    let metadata = "";
+    if (type === 'Electricity') {
+      // Generate a random 20-digit prepaid token
+      metadata = Array.from({length: 5}, () => Math.floor(1000 + Math.random() * 9000)).join(' ');
+    } else {
+      metadata = `Voucher sent to ${user.phone}`;
+    }
+
+    user.transactions.unshift({ 
+      type: `Buy ${type}`, 
+      amount: val, 
+      recipient: provider,
+      date: new Date() 
+    });
+
+    await user.save();
+    res.json({ message: "Purchase Successful", newBalance: user.balance, token: metadata, user });
+  } catch (err) {
+    res.status(500).json({ message: "Transaction failed" });
+  }
+});
+
 // SEND MONEY (The Core Transaction)
 app.post('/api/send', async (req, res) => {
   const { senderEmail, recipientEmail, amount } = req.body;
