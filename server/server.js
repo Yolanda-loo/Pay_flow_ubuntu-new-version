@@ -11,10 +11,12 @@ app.use(express.json());
 app.use(cors());
 
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('🇿🇦 UbuntuPay Database Connected'))
-  .catch(err => console.error('Mongo Error:', err));
+  .then(() => console.log('🇿🇦 UbuntuPay MongoDB Connected'))
+  .catch(err => console.error('Database Error:', err));
 
-// REGISTER
+// --- API ROUTES ---
+
+// 1. REGISTER
 app.post('/api/register', async (req, res) => {
   try {
     const { fullName, email, phone, password } = req.body;
@@ -24,7 +26,7 @@ app.post('/api/register', async (req, res) => {
       email: email.toLowerCase(),
       phone,
       password: hashedPassword,
-      balance: 1500.00 // SA Welcome Bonus
+      balance: 1500.00 // SA Signup Bonus
     });
     await newUser.save();
     res.status(201).json({ message: "Account Created" });
@@ -33,7 +35,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// LOGIN
+// 2. LOGIN
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email: email.toLowerCase() });
@@ -44,18 +46,20 @@ app.post('/api/login', async (req, res) => {
   res.json({ token, user });
 });
 
-// P2P SEND & SCAN PAY
+// 3. P2P SEND & SCAN PAY
 app.post('/api/send', async (req, res) => {
   const { senderEmail, recipientEmail, amount } = req.body;
   const val = parseFloat(amount);
   try {
     const sender = await User.findOne({ email: senderEmail.toLowerCase() });
     const recipient = await User.findOne({ email: recipientEmail.toLowerCase() });
-    if (!recipient) return res.status(404).json({ message: "Recipient not found" });
+    
+    if (!recipient) return res.status(404).json({ message: "User not found" });
     if (sender.balance < val) return res.status(400).json({ message: "Insufficient funds" });
 
     sender.balance -= val;
     recipient.balance += val;
+    
     sender.transactions.unshift({ type: 'Payment Sent', amount: val, recipient: recipientEmail, date: new Date() });
     recipient.transactions.unshift({ type: 'Payment Received', amount: val, recipient: senderEmail, date: new Date() });
 
@@ -67,4 +71,25 @@ app.post('/api/send', async (req, res) => {
   }
 });
 
-app.listen(5000, () => console.log("Server running on Port 5000"));
+// 4. UTILITY (POWER/AIRTIME)
+app.post('/api/utility', async (req, res) => {
+  const { email, type, amount, provider } = req.body;
+  const val = parseFloat(amount);
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (user.balance < val) return res.status(400).json({ message: "Insufficient funds" });
+
+    user.balance -= val;
+    const token = type === 'Electricity' ? 
+      Array.from({length: 5}, () => Math.floor(1000 + Math.random() * 9000)).join(' ') : 
+      `Voucher sent to ${user.phone}`;
+
+    user.transactions.unshift({ type: `Buy ${type}`, amount: val, recipient: provider, date: new Date() });
+    await user.save();
+    res.json({ user, token });
+  } catch (err) {
+    res.status(500).json({ message: "Purchase failed" });
+  }
+});
+
+app.listen(5000, () => console.log("Backend running on Port 5000"));
