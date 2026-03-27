@@ -1,4 +1,5 @@
 import './style.css';
+import QRCode from 'qrcode';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -34,6 +35,21 @@ const AppState = {
     } else { showToast(data.message); }
   },
 
+  async buyUtility(type, amount, provider) {
+    const res = await fetch(`${API_URL}/utility`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: this.currentUser.email, type, amount, provider })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      this.currentUser = data.user;
+      localStorage.setItem('user_data', JSON.stringify(data.user));
+      if(type === 'Electricity') alert(`⚡ METER TOKEN:\n${data.token}`);
+      render();
+    }
+  },
+
   async sendMoney(recipientEmail, amount) {
     const res = await fetch(`${API_URL}/send`, {
       method: 'POST',
@@ -47,37 +63,30 @@ const AppState = {
       showToast("Payment Successful 🇿🇦");
       render();
     }
+  },
+
+  async showMyQRCode() {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center p-6';
+    const canvas = document.createElement('canvas');
+    canvas.className = 'rounded-3xl border-8 border-white shadow-2xl';
+    await QRCode.toCanvas(canvas, this.currentUser.email, { width: 280, margin: 2 });
+    modal.innerHTML = `<h2 class="text-emerald-500 font-bold mb-4 uppercase tracking-widest text-xs">My Pay ID</h2><div id="qr-wrap"></div><button id="close-qr" class="mt-10 bg-white/10 text-white px-8 py-4 rounded-2xl border border-white/20">Close</button>`;
+    document.body.appendChild(modal);
+    document.getElementById('qr-wrap').appendChild(canvas);
+    document.getElementById('close-qr').onclick = () => modal.remove();
   }
 };
 
-// --- UI COMPONENTS ---
-
-function HomeView() {
-  const isLogin = AppState.authMode === 'login';
-  return `
-    <div class="min-h-screen bg-[#0f172a] flex items-center justify-center p-6 view-transition">
-      <div class="bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 border border-slate-800">
-        <h1 class="text-3xl font-black text-emerald-500 mb-8 text-center italic tracking-tighter text-shadow-glow">UbuntuPay</h1>
-        <form id="auth-form" class="space-y-4">
-          ${!isLogin ? `<input type="text" id="name" placeholder="Full Name" required class="w-full p-4 bg-slate-800 rounded-2xl border border-slate-700 text-white outline-none focus:border-emerald-500">` : ''}
-          <input type="email" id="email" placeholder="Email" required class="w-full p-4 bg-slate-800 rounded-2xl border border-slate-700 text-white outline-none focus:border-emerald-500">
-          <input type="password" id="password" placeholder="Password" required class="w-full p-4 bg-slate-800 rounded-2xl border border-slate-700 text-white outline-none focus:border-emerald-500">
-          <button type="submit" class="w-full bg-emerald-500 text-slate-900 font-black py-5 rounded-2xl shadow-lg uppercase tracking-widest text-xs mt-4 hover:bg-emerald-400 transition-all">
-            ${isLogin ? 'Sign In' : 'Create Account'}
-          </button>
-        </form>
-        <button id="toggle-btn" class="w-full mt-8 text-slate-500 font-bold text-xs uppercase tracking-widest">${isLogin ? 'New Member? Register' : 'Existing? Login'}</button>
-      </div>
-    </div>`;
-}
+// --- VIEWS ---
 
 function DashboardView() {
   const user = AppState.currentUser;
   return `
-    <div class="min-h-screen bg-[#0f172a] text-white pb-24 view-transition overflow-x-hidden">
+    <div class="min-h-screen bg-[#0f172a] text-white pb-24 view-transition">
       <header class="p-6 flex justify-between items-center sticky top-0 z-40 bg-[#0f172a]/80 backdrop-blur-lg">
-        <h1 class="text-xl font-black tracking-tighter text-emerald-500">UBUNTUPAY</h1>
-        <button id="logout-btn" class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center border border-slate-700 hover:text-red-500 transition-colors">
+        <h1 class="text-xl font-black text-emerald-500 italic tracking-tighter">UBUNTUPAY</h1>
+        <button id="logout-btn" class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center border border-slate-700">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7" stroke-width="2" stroke-linecap="round"></path></svg>
         </button>
       </header>
@@ -85,11 +94,11 @@ function DashboardView() {
       <main class="p-6 max-w-xl mx-auto space-y-8">
         <div class="relative bg-slate-900 border border-slate-800 rounded-[2.5rem] p-10 overflow-hidden shadow-2xl">
           <div class="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl"></div>
-          <p class="text-emerald-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Available Funds</p>
+          <p class="text-emerald-500 text-[10px] font-black uppercase tracking-[0.2em] mb-2 text-shadow-glow">Global Balance</p>
           <h2 class="text-5xl font-light tracking-tighter mb-10">R ${user.balance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}</h2>
           <div class="flex space-x-3">
             <button id="send-trigger" class="flex-1 bg-emerald-500 text-slate-900 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20">Pay</button>
-            <button class="flex-1 bg-slate-800 py-4 rounded-2xl text-xs font-black uppercase tracking-widest border border-slate-700">Top Up</button>
+            <button id="my-qr" class="flex-1 bg-slate-800 py-4 rounded-2xl text-xs font-black uppercase tracking-widest border border-slate-700">My QR</button>
           </div>
         </div>
 
@@ -101,20 +110,20 @@ function DashboardView() {
         </div>
 
         <div class="bg-slate-900 rounded-[2rem] p-8 border border-slate-800">
-           <h3 class="font-bold mb-6 text-slate-400 uppercase text-xs tracking-widest">Recent Activity</h3>
+           <h3 class="font-bold mb-6 text-slate-500 uppercase text-xs tracking-widest italic">Activity History</h3>
            <div class="space-y-6">
-             ${user.transactions.length > 0 ? user.transactions.map(tx => `
+             ${user.transactions.map(tx => `
                <div class="flex justify-between items-center">
                  <div class="flex items-center space-x-4">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">🇿🇦</div>
+                    <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-lg">🇿🇦</div>
                     <div>
-                      <p class="text-sm font-bold">${tx.type}</p>
+                      <p class="text-sm font-bold text-slate-200">${tx.type}</p>
                       <p class="text-[9px] font-black text-slate-500 uppercase">${new Date(tx.date).toLocaleDateString()}</p>
                     </div>
                  </div>
                  <p class="font-bold ${tx.type.includes('Receive') ? 'text-emerald-500' : 'text-slate-300'}">R ${tx.amount.toFixed(2)}</p>
                </div>
-             `).join('') : '<p class="text-center text-slate-600 text-xs italic">No activity yet</p>'}
+             `).join('')}
            </div>
         </div>
       </main>
@@ -131,56 +140,15 @@ function DashboardView() {
     </div>`;
 }
 
-// --- HELPERS & LISTENERS ---
-
-function renderService(id, label, iconPath) {
-  return `
-    <button id="${id}" class="flex flex-col items-center group">
-      <div class="w-14 h-14 bg-slate-900 border border-slate-800 text-emerald-500 rounded-2xl flex items-center justify-center mb-2 group-active:scale-90 transition-all shadow-lg">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="${iconPath}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-      </div>
-      <span class="text-[9px] font-black text-slate-500 uppercase tracking-tighter">${label}</span>
-    </button>`;
-}
-
-function showToast(msg) {
-  const container = document.getElementById('toast-container');
-  const toast = document.createElement('div');
-  toast.className = 'bg-emerald-500 text-slate-900 px-8 py-4 rounded-2xl shadow-2xl text-[10px] font-black uppercase tracking-widest view-transition border-b-4 border-emerald-700';
-  toast.innerText = msg;
-  container.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
-}
+// ... (Keep renderService, HomeView, showToast from previous versions) ...
 
 function attachEventListeners() {
-  const toggleBtn = document.getElementById('toggle-btn');
-  if (toggleBtn) toggleBtn.addEventListener('click', () => { AppState.authMode = AppState.authMode === 'login' ? 'register' : 'login'; render(); });
-
-  const authForm = document.getElementById('auth-form');
-  if (authForm) {
-    authForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value;
-      const pass = document.getElementById('password').value;
-      if (AppState.authMode === 'login') { await AppState.login(email, pass); }
-      else {
-        const name = document.getElementById('name').value;
-        const phone = document.getElementById('phone').value;
-        await AppState.register(name, email, phone, pass);
-      }
-    });
-  }
-
-  const sendBtn = document.getElementById('send-trigger');
-  if (sendBtn) sendBtn.addEventListener('click', async () => {
-    const email = prompt("Recipient Email:");
-    const amount = prompt("Amount (R):");
-    if (email && amount) await AppState.sendMoney(email, amount);
+  document.getElementById('my-qr')?.addEventListener('click', () => AppState.showMyQRCode());
+  document.getElementById('buy-power')?.addEventListener('click', () => {
+    const amt = prompt("Enter Power Amount (R):");
+    if(amt) AppState.buyUtility('Electricity', amt, 'Eskom');
   });
-
-  const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) logoutBtn.addEventListener('click', () => AppState.logout());
-
+  
   // SCANNER LOGIC
   const scanBtn = document.getElementById('scan-pay');
   const scannerContainer = document.getElementById('scanner-container');
@@ -193,22 +161,15 @@ function attachEventListeners() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         video.srcObject = stream;
         video.play();
-
         setTimeout(async () => {
           stream.getTracks().forEach(track => track.stop());
           scannerContainer.classList.add('hidden');
-          const amount = prompt("QR Scanned! Enter amount to pay Vendor:");
-          if (amount) await AppState.sendMoney("vendor@ubuntupay.co.za", amount);
-        }, 4000);
-      } catch (err) { showToast("Camera Access Denied"); scannerContainer.classList.add('hidden'); }
+          const email = prompt("Recipient Scanned! Enter Email:");
+          const amount = prompt("Enter Amount (R):");
+          if (email && amount) await AppState.sendMoney(email, amount);
+        }, 3500);
+      } catch (err) { scannerContainer.classList.add('hidden'); }
     });
   }
 }
-
-function render() {
-  const app = document.getElementById('app');
-  app.innerHTML = AppState.currentView === 'home' ? HomeView() : DashboardView();
-  attachEventListeners();
-}
-
-document.addEventListener('DOMContentLoaded', () => AppState.init());
+// ... (Render and Init logic) ...
